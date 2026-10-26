@@ -1,0 +1,129 @@
+openapi: 3.0.3
+info:
+  title: API Classement - Hub
+  version: 1.0.0
+  description: |
+    Contrat de l'écran Classement.
+    Règles métier :
+    - Égalité d'XP : départage par date d'obtention de l'XP la plus ancienne (achievedAt ASC).
+    - Joueurs sans partie : inclus dans le classement avec 0 XP et niveau 1.
+    - Pagination : fixée au top 100 maximum, pas de navigation multipage.
+
+paths:
+  /leaderboard:
+    get:
+      summary: Récupérer le classement des joueurs
+      description: Renvoie la liste ordonnée des joueurs selon la période demandée.
+      parameters:
+        - name: period
+          in: query
+          required: false
+          description: Filtre temporel d'affichage
+          schema:
+            type: string
+            enum: [season, today]
+            default: season
+
+      responses:
+        '200':
+          description: Classement récupéré avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - period
+                  - total
+                  - items
+                properties:
+                  period:
+                    type: string
+                    enum: [season, today]
+                    example: "season"
+                  total:
+                    type: integer
+                    minimum: 0
+                    maximum: 100
+                    example: 11
+                    description: Nombre d'entrées retournées (plafonné à 100)
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LeaderboardEntry'
+
+        '400':
+          description: Paramètre de requête invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "INVALID_PERIOD"
+                message: "Le paramètre period doit valoir 'season' ou 'today'."
+
+        '401':
+          description: Non authentifié (impossible d'identifier le joueur connecté)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "UNAUTHORIZED"
+                message: "Jeton de session absent ou expiré."
+
+components:
+  schemas:
+    LeaderboardEntry:
+      type: object
+      required:
+        - id
+        - rank
+        - username
+        - level
+        - xp
+        - isCurrentPlayer
+      properties:
+        id:
+          type: string
+          description: Identifiant unique du joueur (ex. UUID)
+          example: "usr_94a2b1"
+        rank:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 9
+        username:
+          type: string
+          minLength: 1
+          maxLength: 32
+          example: "Loris"
+        team:
+          type: string
+          nullable: true
+          description: Nom de l'équipe (null si aucune équipe assignée)
+          example: null
+        level:
+          type: integer
+          minimum: 1
+          example: 2
+        xp:
+          type: integer
+          minimum: 0
+          example: 113
+        isCurrentPlayer:
+          type: boolean
+          description: Indique si l'entrée correspond à l'utilisateur connecté (ligne jaune)
+          example: true
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          example: "BAD_REQUEST"
+        message:
+          type: string
+          example: "Une erreur est survenue lors de la validation."
